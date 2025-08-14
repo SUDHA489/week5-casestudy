@@ -1,0 +1,41 @@
+name: Run Databricks Quality Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  databricks-quality-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      
+      - name: Trigger Databricks Job
+        id: run_databricks_job
+        uses: databricks/run-job@v0
+        with:
+          databricks-host: ${{ secrets.DATABRICKS_HOST }}
+          databricks-token: ${{ secrets.DATABRICKS_TOKEN }}
+          job-id: ${{ secrets.DATABRICKS_JOB_ID }}
+
+      
+      - name: Show Deequ Result JSON
+        run: |
+          echo "---- Deequ Report JSON ----"
+          echo '${{ steps.run_databricks_job.outputs.run-output }}'
+
+      
+      # - name: Rollback on Failure
+      #   if: failure()
+      #   uses: databricks/run-notebook@v0
+      #   with:
+      #     databricks-host: ${{ secrets.DATABRICKS_HOST }}
+      #     databricks-token: ${{ secrets.DATABRICKS_TOKEN }}
+      #     workspace-notebook-path: /Users/traininguser8@sudosu.ai/rollback_notebook
+      #     existing-cluster-id: ${{ secrets.DATABRICKS_CLUSTER_ID }}
