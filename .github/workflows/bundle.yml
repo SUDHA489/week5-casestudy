@@ -11,9 +11,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Databricks CLI
+      - name: Install Databricks CLI v1.x
         run: |
-          pip install databricks-cli
+          pip install databricks-cli --upgrade
 
       - name: Configure Databricks CLI
         run: |
@@ -24,11 +24,21 @@ jobs:
 
       - name: Trigger Databricks Job
         run: |
-          RUN_ID=$(databricks jobs run-now --job-name "week5-casestudy_Job" | jq -r '.run_id')
+          RUN_ID=$(databricks jobs run-now --job-id ${{ secrets.DATABRICKS_JOB_ID }} | jq -r '.run_id')
           echo "Triggered run ID: $RUN_ID"
-          
-          # Wait for job completion
-          databricks runs wait-for $RUN_ID
+
+          # Wait until the job finishes
+          while true; do
+            STATE=$(databricks runs get --run-id $RUN_ID | jq -r '.state.life_cycle_state')
+            RESULT=$(databricks runs get --run-id $RUN_ID | jq -r '.state.result_state')
+            echo "Job state: $STATE"
+            if [ "$STATE" == "TERMINATED" ]; then
+              echo "Job finished with result: $RESULT"
+              if [ "$RESULT" != "SUCCESS" ]; then exit 1; fi
+              break
+            fi
+            sleep 20
+          done
 
       - name: Download Deequ Report from DBFS
         run: |
