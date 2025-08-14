@@ -1,41 +1,41 @@
-name: Run Databricks Quality Check
+name: Run Databricks Job
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 jobs:
-  databricks-quality-check:
+  run-databricks-job:
     runs-on: ubuntu-latest
-
     steps:
-      
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      
-      - name: Trigger Databricks Job
-        id: run_databricks_job
-        uses: databricks/run-job@v0
-        with:
-          databricks-host: ${{ secrets.DATABRICKS_HOST }}
-          databricks-token: ${{ secrets.DATABRICKS_TOKEN }}
-          job-id: ${{ secrets.DATABRICKS_JOB_ID }}
-
-      
-      - name: Show Deequ Result JSON
+      - name: Install Databricks CLI
         run: |
-          echo "---- Deequ Report JSON ----"
-          echo '${{ steps.run_databricks_job.outputs.run-output }}'
+          pip install databricks-cli
 
-      
-      # - name: Rollback on Failure
-      #   if: failure()
-      #   uses: databricks/run-notebook@v0
-      #   with:
-      #     databricks-host: ${{ secrets.DATABRICKS_HOST }}
-      #     databricks-token: ${{ secrets.DATABRICKS_TOKEN }}
-      #     workspace-notebook-path: /Users/traininguser8@sudosu.ai/rollback_notebook
-      #     existing-cluster-id: ${{ secrets.DATABRICKS_CLUSTER_ID }}
+      - name: Configure Databricks CLI
+        run: |
+          databricks configure --token <<EOF
+          ${{ secrets.DATABRICKS_HOST }}
+          ${{ secrets.DATABRICKS_TOKEN }}
+          EOF
+
+      - name: Trigger Databricks Job
+        run: |
+          RUN_ID=$(databricks jobs run-now --job-name "week5-casestudy_Job" | jq -r '.run_id')
+          echo "Triggered run ID: $RUN_ID"
+          
+          # Wait for job completion
+          databricks runs wait-for $RUN_ID
+
+      - name: Download Deequ Report from DBFS
+        run: |
+          databricks fs cp -r dbfs:/FileStore/shared_uploads/traininguser8@sudosu.ai/deequ_reports ./deequ_reports
+
+      - name: Upload Report as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deequ-report
+          path: ./deequ_reports
