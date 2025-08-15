@@ -3,7 +3,9 @@
 name: Run ADF Pipeline
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   trigger-adf:
@@ -18,7 +20,7 @@ jobs:
     - name: Start ADF Pipeline
       id: start
       run: |
-        RUN_ID=$(az datafactory pipeline create-run \
+        RUN_ID=$(az datafactory pipeline-run create \
           --factory-name "${{ secrets.ADF_NAME }}" \
           --resource-group "${{ secrets.ADF_RG }}" \
           --name "${{ secrets.ADF_PIPELINE_NAME }}" \
@@ -30,7 +32,7 @@ jobs:
     - name: Wait for Completion
       run: |
         STATUS="InProgress"
-        while [ "$STATUS" == "InProgress" ] || [ "$STATUS" == "Queued" ]; do
+        while [[ "$STATUS" == "InProgress" || "$STATUS" == "Queued" ]]; do
           STATUS=$(az datafactory pipeline-run show \
             --factory-name "${{ secrets.ADF_NAME }}" \
             --resource-group "${{ secrets.ADF_RG }}" \
@@ -41,16 +43,12 @@ jobs:
           sleep 30
         done
 
-        if [ "$STATUS" != "Succeeded" ]; then
+        if [[ "$STATUS" != "Succeeded" ]]; then
           echo "Pipeline failed with status: $STATUS"
           exit 1
         fi
 
         echo "Pipeline succeeded!"
-
-
-
-
 
 
 
